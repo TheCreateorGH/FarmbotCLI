@@ -35,6 +35,22 @@ class CliCommandTests(unittest.TestCase):
         should_continue = cli.execute(bot, "version")
         self.assertTrue(should_continue)
 
+    def test_directional_shortcuts_delegate_to_jog(self):
+        bot = DummyBot()
+        cases = [
+            ("left 10", ["x", "-10.0"]),
+            ("right 10 80", ["x", "10.0", "80.0"]),
+            ("forward 12", ["y", "12.0"]),
+            ("back 7", ["y", "-7.0"]),
+            ("up 5", ["z", "5.0"]),
+            ("down 3 20", ["z", "-3.0", "20.0"]),
+        ]
+        for command, expected_args in cases:
+            with self.subTest(command=command):
+                with patch.object(cli, "cmd_jog") as cmd_jog:
+                    cli.execute(bot, command)
+                cmd_jog.assert_called_once_with(bot, expected_args)
+
 
 if __name__ == "__main__":
     unittest.main()

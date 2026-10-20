@@ -644,6 +644,36 @@ def cmd_jog(bot: FarmBot, args: list[str]) -> None:
     cmd_rel(bot, [str(delta["x"]), str(delta["y"]), str(delta["z"])] + ([str(vals[1])] if len(vals) == 2 else []))
 
 
+def _directional_jog(bot: FarmBot, args: list[str], axis: str, sign: int, usage: str) -> None:
+    vals = parse_numbers(args, 1, 2, usage)
+    distance = abs(vals[0]) * sign
+    cmd_jog(bot, [axis, str(distance)] + ([str(vals[1])] if len(vals) == 2 else []))
+
+
+def cmd_left(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "x", -1, "left <distance> [speed%]")
+
+
+def cmd_right(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "x", 1, "right <distance> [speed%]")
+
+
+def cmd_forward(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "y", 1, "forward <distance> [speed%]")
+
+
+def cmd_back(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "y", -1, "back <distance> [speed%]")
+
+
+def cmd_up(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "z", 1, "up <distance> [speed%]")
+
+
+def cmd_down(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "z", -1, "down <distance> [speed%]")
+
+
 def cmd_lift(bot: FarmBot, args: list[str]) -> None:
     """Raise Z to the safe travel height without changing X/Y."""
     x, y, _ = known_position(bot)
@@ -1083,6 +1113,12 @@ COMMANDS: dict = {
     "move":        (cmd_move,        "<x> <y> <z> [speed%]", "Move to absolute coordinates", "move"),
     "rel":         (cmd_rel,         "<dx> <dy> <dz> [speed%]", "Move relative to current position", "move"),
     "jog":         (cmd_jog,         "<x|y|z> <dist> [speed%]", "Move a single axis relative", "move"),
+    "left":        (cmd_left,        "<distance> [speed%]", "Jog X negative", "move"),
+    "right":       (cmd_right,       "<distance> [speed%]", "Jog X positive", "move"),
+    "forward":     (cmd_forward,     "<distance> [speed%]", "Jog Y positive", "move"),
+    "back":        (cmd_back,        "<distance> [speed%]", "Jog Y negative", "move"),
+    "up":          (cmd_up,          "<distance> [speed%]", "Jog Z positive", "move"),
+    "down":        (cmd_down,        "<distance> [speed%]", "Jog Z negative", "move"),
     "lift":        (cmd_lift,        "", "Raise Z to the safe travel height", "move"),
     "home":        (cmd_home,        "[x|y|z|all]", "Go to home (0) position", "move"),
     "findhome":    (cmd_findhome,    "[x|y|z|all]", "Find home using endstops/encoders", "move"),
