@@ -39,12 +39,14 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import platform
 import shlex
 import sys
 import threading
 import time
 import uuid
 from datetime import datetime
+from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -544,6 +546,25 @@ def cmd_device(bot: FarmBot, args: list[str]) -> None:
     console.print(table)
 
 
+def cmd_version(bot: FarmBot, args: list[str]) -> None:
+    try:
+        cli_version = package_version("fbcli")
+    except PackageNotFoundError:
+        cli_version = "dev"
+    console.print(
+        f"fbcli [bold]{escape(cli_version)}[/bold]  |  "
+        f"Python {escape(platform.python_version())}  |  "
+        f"Device {escape(str(bot.device or '?'))}"
+    )
+
+
+def cmd_ping(bot: FarmBot, args: list[str]) -> None:
+    started = time.perf_counter()
+    bot.api_get("device")
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    console.print(f"[green]✔ API reachable[/green] ({elapsed_ms:.0f} ms)")
+
+
 def cmd_limits(bot: FarmBot, args: list[str]) -> None:
     table = Table(title="Soft limits (edit LIMITS in the script)", border_style="green")
     table.add_column("Axis")
@@ -652,7 +673,7 @@ def cmd_goto(bot: FarmBot, args: list[str]) -> None:
     if not point:
         raise FarmBotError(f"Point {args[0]} not found.")
     console.print(f"Going to [bold]{escape(str(point.get('name', point['id'])))}[/bold] at safe Z {SAFE_Z:g}")
-    travel_to(bot, point["x"], point["y"], SAFE_Z)
+    travel_to(bot, point["x"], point["y"], point["z"])
 
 
 def cmd_grid(bot: FarmBot, args: list[str]) -> None:
@@ -1053,6 +1074,8 @@ COMMANDS: dict = {
     "pos":         (cmd_pos,         "", "Print the current position once", "info"),
     "watch":       (cmd_watch,       "", "Live position display", "info"),
     "device":      (cmd_device,      "", "Device info from the web app", "info"),
+    "version":     (cmd_version,     "", "Show CLI and Python version", "info"),
+    "ping":        (cmd_ping,        "", "Check API reachability and response time", "info"),
     "limits":      (cmd_limits,      "", "Show configured soft limits", "info"),
     "logs":        (cmd_logs,        "on|off|<count>", "Live logs on/off, or show the last <count> logs", "info"),
     "photos":      (cmd_photos,      "[count]", "List the latest photos with position and URL", "info"),
