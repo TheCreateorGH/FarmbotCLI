@@ -39,12 +39,14 @@ from __future__ import annotations
 import getpass
 import json
 import os
+import platform
 import shlex
 import sys
 import threading
 import time
 import uuid
 from datetime import datetime
+from importlib.metadata import PackageNotFoundError, version as package_version
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -544,6 +546,25 @@ def cmd_device(bot: FarmBot, args: list[str]) -> None:
     console.print(table)
 
 
+def cmd_version(bot: FarmBot, args: list[str]) -> None:
+    try:
+        cli_version = package_version("fbcli")
+    except PackageNotFoundError:
+        cli_version = "dev"
+    console.print(
+        f"fbcli [bold]{escape(cli_version)}[/bold]  |  "
+        f"Python {escape(platform.python_version())}  |  "
+        f"Device {escape(str(bot.device or '?'))}"
+    )
+
+
+def cmd_ping(bot: FarmBot, args: list[str]) -> None:
+    started = time.perf_counter()
+    bot.api_get("device")
+    elapsed_ms = (time.perf_counter() - started) * 1000
+    console.print(f"[green]✔ API reachable[/green] ({elapsed_ms:.0f} ms)")
+
+
 def cmd_limits(bot: FarmBot, args: list[str]) -> None:
     table = Table(title="Soft limits (edit LIMITS in the script)", border_style="green")
     table.add_column("Axis")
@@ -623,6 +644,36 @@ def cmd_jog(bot: FarmBot, args: list[str]) -> None:
     cmd_rel(bot, [str(delta["x"]), str(delta["y"]), str(delta["z"])] + ([str(vals[1])] if len(vals) == 2 else []))
 
 
+def _directional_jog(bot: FarmBot, args: list[str], axis: str, sign: int, usage: str) -> None:
+    vals = parse_numbers(args, 1, 2, usage)
+    distance = abs(vals[0]) * sign
+    cmd_jog(bot, [axis, str(distance)] + ([str(vals[1])] if len(vals) == 2 else []))
+
+
+def cmd_left(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "x", -1, "left <distance> [speed%]")
+
+
+def cmd_right(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "x", 1, "right <distance> [speed%]")
+
+
+def cmd_forward(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "y", 1, "forward <distance> [speed%]")
+
+
+def cmd_back(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "y", -1, "back <distance> [speed%]")
+
+
+def cmd_up(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "z", 1, "up <distance> [speed%]")
+
+
+def cmd_down(bot: FarmBot, args: list[str]) -> None:
+    _directional_jog(bot, args, "z", -1, "down <distance> [speed%]")
+
+
 def cmd_lift(bot: FarmBot, args: list[str]) -> None:
     """Raise Z to the safe travel height without changing X/Y."""
     x, y, _ = known_position(bot)
@@ -652,7 +703,7 @@ def cmd_goto(bot: FarmBot, args: list[str]) -> None:
     if not point:
         raise FarmBotError(f"Point {args[0]} not found.")
     console.print(f"Going to [bold]{escape(str(point.get('name', point['id'])))}[/bold] at safe Z {SAFE_Z:g}")
-    travel_to(bot, point["x"], point["y"], SAFE_Z)
+    travel_to(bot, point["x"], point["y"], point["z"])
 
 
 def cmd_grid(bot: FarmBot, args: list[str]) -> None:
@@ -1053,6 +1104,8 @@ COMMANDS: dict = {
     "pos":         (cmd_pos,         "", "Print the current position once", "info"),
     "watch":       (cmd_watch,       "", "Live position display", "info"),
     "device":      (cmd_device,      "", "Device info from the web app", "info"),
+    "version":     (cmd_version,     "", "Show CLI and Python version", "info"),
+    "ping":        (cmd_ping,        "", "Check API reachability and response time", "info"),
     "limits":      (cmd_limits,      "", "Show configured soft limits", "info"),
     "logs":        (cmd_logs,        "on|off|<count>", "Live logs on/off, or show the last <count> logs", "info"),
     "photos":      (cmd_photos,      "[count]", "List the latest photos with position and URL", "info"),
@@ -1060,6 +1113,12 @@ COMMANDS: dict = {
     "move":        (cmd_move,        "<x> <y> <z> [speed%]", "Move to absolute coordinates", "move"),
     "rel":         (cmd_rel,         "<dx> <dy> <dz> [speed%]", "Move relative to current position", "move"),
     "jog":         (cmd_jog,         "<x|y|z> <dist> [speed%]", "Move a single axis relative", "move"),
+    "left":        (cmd_left,        "<distance> [speed%]", "Jog X negative", "move"),
+    "right":       (cmd_right,       "<distance> [speed%]", "Jog X positive", "move"),
+    "forward":     (cmd_forward,     "<distance> [speed%]", "Jog Y positive", "move"),
+    "back":        (cmd_back,        "<distance> [speed%]", "Jog Y negative", "move"),
+    "up":          (cmd_up,          "<distance> [speed%]", "Jog Z positive", "move"),
+    "down":        (cmd_down,        "<distance> [speed%]", "Jog Z negative", "move"),
     "lift":        (cmd_lift,        "", "Raise Z to the safe travel height", "move"),
     "home":        (cmd_home,        "[x|y|z|all]", "Go to home (0) position", "move"),
     "findhome":    (cmd_findhome,    "[x|y|z|all]", "Find home using endstops/encoders", "move"),
